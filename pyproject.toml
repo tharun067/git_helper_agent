@@ -1,0 +1,19 @@
+[project]
+name = "git-helper-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "chromadb>=1.0.20",
+    "faiss-cpu>=1.12.0",
+    "gitpython>=3.1.45",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.29",
+    "langchain-core>=0.3.75",
+    "langchain-groq>=0.3.7",
+    "langgraph>=0.6.6",
+    "python-dotenv>=1.1.1",
+    "sentence-transformers>=5.1.0",
+    "streamlit>=1.49.1",
+]

@@ -1,0 +1,10 @@
+langchain
+langchain-core
+langchain-community
+langgraph
+python-dotenv
+sentence-transformers
+faiss-cpu
+chromadb
+gitpython
+streamlit
