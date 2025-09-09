@@ -16,53 +16,67 @@ class Retriever:
         """
         print("--- Initializing RAG Retriever ---")
         self.embedding_manager = EmbeddingManager(model_name=model_name)
-        self.vector_store_manager = VectorStore(persist_directory=persist_directory,
+        self.vector_store = VectorStore(persist_directory=persist_directory,
                                                        collection_name=collection_name)
 
-    def retrieve(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 5, score_threshold: float = 0.0) -> List[Dict[str, Any]]:
         """
-        Queries the vector store for relevant documents based on the query text.
-
+        Retrieve relevant documents for a query
+        
         Args:
-            query_text: The user's query.
-            n_results: The number of top results to return.
-
+            query: The search query
+            top_k: Number of top results to return
+            score_threshold: Minimum similarity score threshold
+            
         Returns:
-            A list of dictionaries, each containing a retrieved document and its metadata.
+            List of dictionaries containing retrieved documents and metadata
         """
-        print(f"\n--- Performing a query: '{query_text}' ---")
+        print(f"Retrieving documents for query: '{query}'")
+        print(f"Top K: {top_k}, Score threshold: {score_threshold}")
+        
+        # Generate query embedding
+        query_embedding = self.embedding_manager.generate_embeddings([query])[0]
+        
+        # Search in vector store
+        try:
+            results = self.vector_store.collection.query(
+                query_embeddings=[query_embedding.tolist()],
+                n_results=top_k
+            )
+            # Process results
+            retrieved_docs = []
+            
+            if results['documents'] and results['documents'][0]:
+                documents = results['documents'][0]
+                metadatas = results['metadatas'][0]
+                distances = results['distances'][0]
+                ids = results['ids'][0]
+                for i, (doc_id, document, metadata, distance) in enumerate(zip(ids, documents, metadatas, distances)):
+                    # Convert distance to similarity score (ChromaDB uses cosine distance)
+                    max_distance = max(distances)
+                    min_distance = min(distances)
+                    similarity_score = 1 - ((distance - min_distance) / (max_distance - min_distance))  # Normalize to [0,1]
+                    
+                    if similarity_score >= score_threshold:
+                        retrieved_docs.append({
+                            'id': doc_id,
+                            'content': document,
+                            'metadata': metadata,
+                            'similarity_score': similarity_score,
+                            'distance': distance,
+                            'rank': i + 1
+                        })
+                
+                print(f"Retrieved {len(retrieved_docs)} documents (after filtering)")
+            else:
+                print("No documents found")
+            
+            return retrieved_docs
+            
+        except Exception as e:
+            print(f"Error during retrieval: {e}")
+            return []
 
-        # Generate embedding for the query
-        query_embedding = self.embedding_manager.generate_embeddings([query_text])
-
-        # Query the collection
-        results = self.vector_store_manager.collection.query(
-            query_embeddings=query_embedding.tolist(),
-            n_results=n_results
-        )
-
-        # Format and print results
-        print(f"\nTop {n_results} results:")
-        formatted_results = []
-        if results.get('documents') and results['documents'][0]:
-            for i, (metadata, doc_content, distance) in enumerate(
-                    zip(results['metadatas'][0], results['documents'][0], results['distances'][0])):
-                result_item = {
-                    "rank": i + 1,
-                    "source": metadata.get('source', 'N/A'),
-                    "distance": distance,
-                    "content": doc_content
-                }
-                formatted_results.append(result_item)
-
-                print(f"\nResult {i + 1}:")
-                print(f"  Source: {result_item['source']}")
-                print(f"  Distance: {result_item['distance']:.4f} (lower is better)")
-                print(f"  Content: \n{result_item['content'][:500]}...")
-        else:
-            print("No results found.")
-
-        return formatted_results
 
 """
 def main():
@@ -85,4 +99,5 @@ if __name__ == "__main__":
     import os
 
     main()
+
 """
